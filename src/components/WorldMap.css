@@ -5,110 +5,139 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 100%);
+  background: linear-gradient(135deg, #0a0e27 0%, #15192e 100%);
   overflow: hidden;
 }
 
 .world-map-container svg {
   width: 100%;
   height: 100%;
-  filter: brightness(1.1) contrast(1.1);
+  filter: brightness(1.05) contrast(1.1);
 }
 
-/* Connections */
+/* Connections - smooth flowing lines */
 .connections line {
-  transition: stroke-width 0.2s ease, stroke-opacity 0.2s ease;
+  transition: stroke-width 0.4s ease, stroke 0.4s ease;
 }
 
-/* Region nodes */
+.connections line:hover {
+  stroke-width: 3;
+  opacity: 0.8;
+}
+
+/* Connection pulse animation */
+.connections .connection {
+  animation: connection-flow 4s linear infinite;
+}
+
+@keyframes connection-flow {
+  0% {
+    stroke-dashoffset: 0;
+  }
+  100% {
+    stroke-dashoffset: -20;
+  }
+}
+
+/* Region nodes - elegant and smooth */
 .region-nodes {
   pointer-events: none;
   user-select: none;
 }
 
-.region-nodes .node {
-  transition: all 0.3s ease;
-  filter: drop-shadow(0 0 12px currentColor) !important;
+/* Halo expanding animation */
+.region-nodes .halo {
+  animation: halo-expand 3s ease-out infinite;
 }
 
-.region-nodes .pulse-ring {
-  animation: pulse-ring-anim 2s ease-out infinite;
-}
-
-@keyframes pulse-ring-anim {
+@keyframes halo-expand {
   0% {
-    r: 12;
-    opacity: 1;
-    stroke-width: 2;
+    r: 30;
+    opacity: 0.3;
   }
   100% {
-    r: 30;
+    r: 55;
     opacity: 0;
-    stroke-width: 0.5;
   }
 }
 
-.region-nodes .region-label {
-  font-family: 'Courier New', monospace;
-  font-weight: bold;
-  transition: filter 0.3s ease;
-  animation: label-pulse 1.5s ease-in-out infinite;
+/* Pulsing ring */
+.region-nodes .pulse-ring {
+  animation: ring-pulse 2s ease-in-out infinite;
 }
 
-@keyframes label-pulse {
+@keyframes ring-pulse {
   0%, 100% {
-    opacity: 0.8;
+    r: 28;
+    opacity: 0.2;
+    stroke-width: 2;
+  }
+  50% {
+    r: 36;
+    opacity: 0.5;
+    stroke-width: 1.5;
+  }
+}
+
+/* Node core pulsing */
+.region-nodes .node-core {
+  animation: core-pulse 2.5s ease-in-out infinite;
+}
+
+@keyframes core-pulse {
+  0%, 100% {
+    r: 10;
+    opacity: 0.5;
+  }
+  50% {
+    r: 14;
+    opacity: 0.9;
+  }
+}
+
+/* Region labels elegant glow */
+.region-nodes .region-label {
+  animation: label-glow 3s ease-in-out infinite;
+  font-kerning: auto;
+  letter-spacing: 0.5px;
+}
+
+@keyframes label-glow {
+  0%, 100% {
+    opacity: 0.7;
     filter: drop-shadow(0 0 4px currentColor);
   }
   50% {
     opacity: 1;
-    filter: drop-shadow(0 0 10px currentColor);
+    filter: drop-shadow(0 0 12px currentColor);
   }
 }
 
-/* Particles */
+/* Particles - fewer, more elegant */
 .particles .particle {
-  animation: particle-heat 1s ease-out forwards;
+  animation: particle-fade 1.2s ease-out forwards;
+  opacity: 0.9;
 }
 
-@keyframes particle-heat {
+@keyframes particle-fade {
   0% {
+    r: 1;
+    opacity: 0.9;
+    filter: drop-shadow(0 0 6px currentColor);
+  }
+  50% {
     r: 2;
-    opacity: 1;
-    filter: drop-shadow(0 0 4px currentColor);
+    opacity: 0.7;
+    filter: drop-shadow(0 0 3px currentColor);
   }
   100% {
-    r: 6;
+    r: 4;
     opacity: 0;
     filter: drop-shadow(0 0 0px currentColor);
   }
 }
 
-/* Connection lines pulse */
-.connections .connection {
-  stroke-dasharray: 5, 10;
-  animation: flow-dash 1s linear infinite;
-}
-
-@keyframes flow-dash {
-  0% {
-    stroke-dashoffset: 0;
-  }
-  100% {
-    stroke-dashoffset: 15;
-  }
-}
-
-/* Overall pulse */
-.pulse {
-  animation: pulse 2s infinite;
-}
-
-@keyframes pulse {
-  0%, 100% {
-    opacity: 0.6;
-  }
-  50% {
-    opacity: 1;
-  }
+/* Overall smooth transitions */
+* {
+  transition: all 0.3s ease;
 }

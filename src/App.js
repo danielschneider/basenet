@@ -38,10 +38,10 @@ function App() {
     setLoading(false);
   };
 
-  // Initial fetch and set up interval for 5-second updates
+  // Initial fetch and set up interval for 15-second updates
   useEffect(() => {
     fetchTrafficData();
-    const interval = setInterval(fetchTrafficData, 5000); // Fetch every 5 seconds for smoother interpolation
+    const interval = setInterval(fetchTrafficData, 15000); // Fetch every 15 seconds
     return () => clearInterval(interval);
   }, []);
 

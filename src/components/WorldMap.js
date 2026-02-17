@@ -31,8 +31,8 @@ function WorldMap({ globalTraffic }) {
       return newStates;
     });
 
-    // Generate particles for traffic flow
-    if (Math.random() > 0.3) {
+    // Generate particles for traffic flow (less frequently)
+    if (Math.random() > 0.65) {
       const connections = [
         ['US', 'EU'],
         ['EU', 'Russia'],
@@ -45,7 +45,7 @@ function WorldMap({ globalTraffic }) {
       ];
 
       connections.forEach(([from, to]) => {
-        if (Math.random() < (regionStates[from].congestion + regionStates[to].congestion) / 4) {
+        if (Math.random() < (regionStates[from].congestion + regionStates[to].congestion) / 6) {
           const fromRegion = regionStates[from];
           const toRegion = regionStates[to];
           
@@ -59,7 +59,7 @@ function WorldMap({ globalTraffic }) {
             intensity: (fromRegion.congestion + toRegion.congestion) / 2
           };
           
-          setParticles(prev => [...prev.slice(-40), newParticle]);
+          setParticles(prev => [...prev.slice(-20), newParticle]); // Keep only 20 particles max
         }
       });
     }
@@ -82,13 +82,21 @@ function WorldMap({ globalTraffic }) {
   }, []);
 
   const getHeatColor = (congestion) => {
-    // Metal heat color scale: dark -> red -> orange -> yellow -> white
-    if (congestion < 0.2) return '#1a1a2e';
-    if (congestion < 0.4) return '#4a0000';
+    // Metal heat color scale: dark -> deep red -> orange -> bright yellow -> white
+    if (congestion < 0.15) return '#0f0f1f';
+    if (congestion < 0.3) return '#2a0a0a';
+    if (congestion < 0.45) return '#6b1a1a';
     if (congestion < 0.6) return '#cc3300';
-    if (congestion < 0.8) return '#ff6600';
-    if (congestion < 1.0) return '#ffcc00';
-    return '#ffff00';
+    if (congestion < 0.75) return '#ff6600';
+    if (congestion < 0.9) return '#ffcc00';
+    return '#ffff88';
+  };
+
+  const getHeatGlow = (congestion) => {
+    if (congestion < 0.3) return '#4a2a2a';
+    if (congestion < 0.6) return '#ff6644';
+    if (congestion < 0.9) return '#ffaa44';
+    return '#ffff88';
   };
 
   const getParticlePos = (p) => {
@@ -125,22 +133,6 @@ function WorldMap({ globalTraffic }) {
           <filter id="heat-glow-yellow">
             <feGaussianBlur stdDeviation="4" />
           </filter>
-          <radialGradient id="node-glow-dark" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor="#4a2a2a" />
-            <stop offset="100%" stopColor="#1a1a2e" />
-          </radialGradient>
-          <radialGradient id="node-glow-red" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor="#ff6644" />
-            <stop offset="100%" stopColor="#cc3300" />
-          </radialGradient>
-          <radialGradient id="node-glow-orange" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor="#ffaa44" />
-            <stop offset="100%" stopColor="#ff6600" />
-          </radialGradient>
-          <radialGradient id="node-glow-yellow" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor="#ffff88" />
-            <stop offset="100%" stopColor="#ffcc00" />
-          </radialGradient>
         </defs>
 
         <rect width="900" height="600" fill="#0a0e27" />
@@ -199,66 +191,111 @@ function WorldMap({ globalTraffic }) {
           {regionNames.map((region, idx) => {
             const state = regionStates[region];
             const heatColor = getHeatColor(state.congestion);
-            const gradientId = 
-              state.congestion < 0.4 ? 'node-glow-dark' :
-              state.congestion < 0.7 ? 'node-glow-red' :
-              state.congestion < 0.9 ? 'node-glow-orange' :
-              'node-glow-yellow';
+            const glowColor = getHeatGlow(state.congestion);
             
             return (
               <g key={region}>
-                {/* Outer pulse ring */}
+                {/* Outer glow halo */}
                 <circle
                   cx={state.x}
                   cy={state.y}
-                  r={18}
+                  r={45}
                   fill="none"
-                  stroke={heatColor}
+                  stroke={glowColor}
                   strokeWidth="1"
-                  opacity={0.3}
-                  className="pulse-ring"
-                  style={{ animation: `pulse-ring ${1 + state.congestion * 0.5}s infinite` }}
+                  opacity={0.15}
+                  className="halo"
+                  style={{ animation: `halo-expand ${2 + state.congestion}s ease-out infinite` }}
                 />
 
-                {/* Main node */}
+                {/* Middle pulsing ring */}
+                <circle
+                  cx={state.x}
+                  cy={state.y}
+                  r={32}
+                  fill="none"
+                  stroke={glowColor}
+                  strokeWidth="2"
+                  opacity={0.3}
+                  className="pulse-ring"
+                  style={{ animation: `ring-pulse ${1.5 + state.congestion * 0.5}s ease-in-out infinite` }}
+                />
+
+                {/* Main node background shadow */}
+                <circle
+                  cx={state.x}
+                  cy={state.y}
+                  r={28}
+                  fill="rgba(0,0,0,0.5)"
+                  className="node-shadow"
+                />
+
+                {/* Main node with radial gradient */}
+                <defs>
+                  <radialGradient id={`node-grad-${region}`} cx="35%" cy="35%" r="65%">
+                    <stop offset="0%" stopColor={glowColor} stopOpacity="1" />
+                    <stop offset="70%" stopColor={heatColor} stopOpacity="0.95" />
+                    <stop offset="100%" stopColor="#000000" stopOpacity="0.4" />
+                  </radialGradient>
+                </defs>
+
+                <circle
+                  cx={state.x}
+                  cy={state.y}
+                  r={28}
+                  fill={`url(#node-grad-${region})`}
+                  stroke={glowColor}
+                  strokeWidth="3"
+                  className="node"
+                  style={{ 
+                    filter: `drop-shadow(0 0 ${16 + state.congestion * 8}px ${glowColor}) drop-shadow(0 0 ${8 + state.congestion * 4}px rgba(0,0,0,0.5))`,
+                    transition: 'all 0.4s ease'
+                  }}
+                />
+
+                {/* Inner bright core */}
                 <circle
                   cx={state.x}
                   cy={state.y}
                   r={12}
-                  fill={`url(#${gradientId})`}
-                  stroke={heatColor}
-                  strokeWidth="2"
-                  className="node"
-                  style={{ filter: `drop-shadow(0 0 ${8 + state.congestion * 4}px ${heatColor})` }}
+                  fill={glowColor}
+                  opacity={0.7}
+                  className="node-core"
+                  style={{ 
+                    filter: `drop-shadow(0 0 8px ${glowColor})`,
+                    animation: `core-pulse 2s ease-in-out infinite`
+                  }}
                 />
 
-                {/* Region label */}
+                {/* Region label - larger */}
                 <text
                   x={state.x}
-                  y={state.y + 30}
+                  y={state.y + 50}
                   textAnchor="middle"
-                  fill={heatColor}
-                  fontSize="13"
+                  fill={glowColor}
+                  fontSize="16"
                   fontWeight="bold"
                   fontFamily="'Courier New', monospace"
                   className="region-label"
                   style={{ 
-                    textShadow: `0 0 10px ${heatColor}`,
-                    pointerEvents: 'none'
+                    filter: `drop-shadow(0 0 8px ${glowColor})`,
+                    pointerEvents: 'none',
+                    textShadow: `0 0 15px ${glowColor}`
                   }}
                 >
                   {region}
                 </text>
 
-                {/* Congestion value */}
+                {/* Congestion percentage */}
                 <text
                   x={state.x}
-                  y={state.y - 20}
+                  y={state.y - 5}
                   textAnchor="middle"
-                  fill={heatColor}
-                  fontSize="11"
+                  fill={glowColor}
+                  fontSize="16"
+                  fontWeight="bold"
                   fontFamily="'Courier New', monospace"
-                  opacity="0.8"
+                  opacity="0.95"
                   style={{ pointerEvents: 'none' }}
                 >
                   {(state.congestion * 100).toFixed(0)}%
