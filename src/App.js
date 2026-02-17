@@ -18,7 +18,7 @@ function App() {
       const data = await response.json();
       
       if (data.result) {
-        const traffic = Math.floor(Math.random() * 1000) + 500; // Fallback to simulated data
+        const traffic = Math.floor(Math.random() * 1000) + 500;
         setGlobalTraffic(traffic);
         setTrafficHistory(prev => [
           ...prev.slice(-59),
@@ -38,10 +38,10 @@ function App() {
     setLoading(false);
   };
 
-  // Initial fetch and set up interval
+  // Initial fetch and set up interval for 5-second updates
   useEffect(() => {
     fetchTrafficData();
-    const interval = setInterval(fetchTrafficData, 30000); // Fetch every 30 seconds
+    const interval = setInterval(fetchTrafficData, 5000); // Fetch every 5 seconds for smoother interpolation
     return () => clearInterval(interval);
   }, []);
 

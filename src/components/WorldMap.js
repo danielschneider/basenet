@@ -1,150 +1,272 @@
-import React, { useState, useEffect } from 'react';
-import { ComposableMap, Geographies, Geography } from 'react-simple-maps';
+import React, { useState, useEffect, useRef } from 'react';
 import './WorldMap.css';
-
-const geoUrl = 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json';
 
 function WorldMap({ globalTraffic }) {
   const [regionStates, setRegionStates] = useState({
-    EU: { congestion: 0.5 },
-    US: { congestion: 0.6 },
-    ASIA: { congestion: 0.7 }
+    US: { congestion: 0.4, x: 150, y: 350 },
+    EU: { congestion: 0.5, x: 400, y: 300 },
+    Russia: { congestion: 0.3, x: 500, y: 200 },
+    India: { congestion: 0.6, x: 550, y: 400 },
+    Australia: { congestion: 0.35, x: 700, y: 450 },
+    'South Africa': { congestion: 0.25, x: 450, y: 500 }
   });
+  const [particles, setParticles] = useState([]);
+  const particleIdRef = useRef(0);
+  const regionNames = Object.keys(regionStates);
 
-  // Simulate region-specific congestion based on global traffic
+  // Update congestion and generate traffic flow
   useEffect(() => {
-    const euCongestion = (globalTraffic / 2000) * Math.random() * 0.3 + 0.3;
-    const usCongestion = (globalTraffic / 1800) * Math.random() * 0.3 + 0.3;
-    const asiaCongestion = (globalTraffic / 2200) * Math.random() * 0.3 + 0.3;
+    setRegionStates(prev => {
+      const newStates = { ...prev };
+      
+      regionNames.forEach(region => {
+        const baseVariance = 0.2 + Math.random() * 0.4;
+        const newCongestion = (globalTraffic / 2000) * baseVariance;
+        newStates[region] = {
+          ...prev[region],
+          congestion: Math.min(Math.max(newCongestion, 0.1), 1.5)
+        };
+      });
 
-    setRegionStates({
-      EU: { congestion: Math.min(euCongestion, 1.5) },
-      US: { congestion: Math.min(usCongestion, 1.5) },
-      ASIA: { congestion: Math.min(asiaCongestion, 1.5) }
+      return newStates;
     });
-  }, [globalTraffic]);
 
-  const getRegionColor = (congestion) => {
-    if (congestion < 0.7) return '#00ff88'; // Green - healthy
-    if (congestion < 1.0) return '#ffff00'; // Yellow - warning
-    return '#ff4444'; // Red - critical
+    // Generate particles for traffic flow
+    if (Math.random() > 0.3) {
+      const connections = [
+        ['US', 'EU'],
+        ['EU', 'Russia'],
+        ['EU', 'India'],
+        ['India', 'Australia'],
+        ['Australia', 'South Africa'],
+        ['US', 'India'],
+        ['Russia', 'Australia'],
+        ['South Africa', 'EU']
+      ];
+
+      connections.forEach(([from, to]) => {
+        if (Math.random() < (regionStates[from].congestion + regionStates[to].congestion) / 4) {
+          const fromRegion = regionStates[from];
+          const toRegion = regionStates[to];
+          
+          const newParticle = {
+            id: particleIdRef.current++,
+            x: fromRegion.x,
+            y: fromRegion.y,
+            targetX: toRegion.x,
+            targetY: toRegion.y,
+            progress: 0,
+            intensity: (fromRegion.congestion + toRegion.congestion) / 2
+          };
+          
+          setParticles(prev => [...prev.slice(-40), newParticle]);
+        }
+      });
+    }
+  }, [globalTraffic, regionNames, regionStates]);
+
+  // Animate particles
+  useEffect(() => {
+    const animationInterval = setInterval(() => {
+      setParticles(prev =>
+        prev
+          .map(p => ({
+            ...p,
+            progress: p.progress + 0.015
+          }))
+          .filter(p => p.progress < 1)
+      );
+    }, 16);
+
+    return () => clearInterval(animationInterval);
+  }, []);
+
+  const getHeatColor = (congestion) => {
+    // Metal heat color scale: dark -> red -> orange -> yellow -> white
+    if (congestion < 0.2) return '#1a1a2e';
+    if (congestion < 0.4) return '#4a0000';
+    if (congestion < 0.6) return '#cc3300';
+    if (congestion < 0.8) return '#ff6600';
+    if (congestion < 1.0) return '#ffcc00';
+    return '#ffff00';
   };
 
-  const getRegionOpacity = (congestion) => {
-    return 0.5 + congestion * 0.5;
+  const getParticlePos = (p) => {
+    const x = p.x + (p.targetX - p.x) * p.progress;
+    const y = p.y + (p.targetY - p.y) * p.progress;
+    return { x, y };
   };
+
+  // Draw connections between regions
+  const connections = [
+    ['US', 'EU'],
+    ['EU', 'Russia'],
+    ['EU', 'India'],
+    ['India', 'Australia'],
+    ['Australia', 'South Africa'],
+    ['US', 'India'],
+    ['Russia', 'Australia'],
+    ['South Africa', 'EU']
+  ];
 
   return (
     <div className="world-map-container">
-      <ComposableMap projection="geoMercator">
-        <Geographies geography={geoUrl}>
-          {({ geographies }) =>
-            geographies.map((geo) => {
-              let regionState = { congestion: 0.5 };
-              
-              // Assign regions
-              if (geo.properties.name) {
-                const name = geo.properties.name.toLowerCase();
-                if (
-                  ['germany', 'france', 'netherlands', 'united kingdom', 'italy', 'spain'].some(
-                    c => name.includes(c)
-                  )
-                ) {
-                  regionState = regionStates.EU;
-                } else if (
-                  ['united states', 'canada', 'mexico'].some(c => name.includes(c))
-                ) {
-                  regionState = regionStates.US;
-                } else if (
-                  ['china', 'japan', 'south korea', 'india', 'singapore', 'australia'].some(
-                    c => name.includes(c)
-                  )
-                ) {
-                  regionState = regionStates.ASIA;
-                }
-              }
+      <svg width="100%" height="100%" viewBox="0 0 900 600" preserveAspectRatio="xMidYMid">
+        <defs>
+          <filter id="heat-glow-dark">
+            <feGaussianBlur stdDeviation="1" />
+          </filter>
+          <filter id="heat-glow-red">
+            <feGaussianBlur stdDeviation="2" />
+          </filter>
+          <filter id="heat-glow-orange">
+            <feGaussianBlur stdDeviation="3" />
+          </filter>
+          <filter id="heat-glow-yellow">
+            <feGaussianBlur stdDeviation="4" />
+          </filter>
+          <radialGradient id="node-glow-dark" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="#4a2a2a" />
+            <stop offset="100%" stopColor="#1a1a2e" />
+          </radialGradient>
+          <radialGradient id="node-glow-red" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="#ff6644" />
+            <stop offset="100%" stopColor="#cc3300" />
+          </radialGradient>
+          <radialGradient id="node-glow-orange" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="#ffaa44" />
+            <stop offset="100%" stopColor="#ff6600" />
+          </radialGradient>
+          <radialGradient id="node-glow-yellow" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="#ffff88" />
+            <stop offset="100%" stopColor="#ffcc00" />
+          </radialGradient>
+        </defs>
 
-              return (
-                <Geography
-                  key={geo.rsmKey}
-                  geography={geo}
-                  style={{
-                    default: {
-                      fill: getRegionColor(regionState.congestion),
-                      stroke: '#1a3a52',
-                      strokeWidth: 0.75,
-                      outline: 'none',
-                      opacity: getRegionOpacity(regionState.congestion),
-                      transition: 'all 0.3s ease',
-                      cursor: 'pointer'
-                    },
-                    hover: {
-                      fill: '#00ff88',
-                      stroke: '#00ff88',
-                      strokeWidth: 1.5,
-                      outline: 'none',
-                      opacity: 1,
-                      transition: 'all 0.3s ease',
-                      cursor: 'pointer'
-                    },
-                    pressed: {
-                      fill: '#00ff88',
-                      stroke: '#00ff88',
-                      strokeWidth: 1.5,
-                      outline: 'none',
-                      opacity: 1
-                    }
-                  }}
-                  title={`${geo.properties.name} - Congestion: ${(regionState.congestion * 100).toFixed(1)}%`}
+        <rect width="900" height="600" fill="#0a0e27" />
+
+        {/* Connection lines */}
+        <g className="connections">
+          {connections.map((conn, idx) => {
+            const from = regionStates[conn[0]];
+            const to = regionStates[conn[1]];
+            const avgCongestion = (from.congestion + to.congestion) / 2;
+            const lineColor = getHeatColor(avgCongestion);
+            
+            return (
+              <line
+                key={idx}
+                x1={from.x}
+                y1={from.y}
+                x2={to.x}
+                y2={to.y}
+                stroke={lineColor}
+                strokeWidth={Math.max(0.5, avgCongestion * 2)}
+                opacity={0.4}
+                className="connection"
+                style={{ 
+                  filter: `drop-shadow(0 0 2px ${lineColor})`,
+                  transition: 'all 0.3s ease'
+                }}
+              />
+            );
+          })}
+        </g>
+
+        {/* Data flow particles */}
+        <g className="particles">
+          {particles.map(p => {
+            const pos = getParticlePos(p);
+            const heatColor = getHeatColor(p.intensity);
+            const size = 2 + p.intensity * 3;
+            return (
+              <circle
+                key={p.id}
+                cx={pos.x}
+                cy={pos.y}
+                r={size}
+                fill={heatColor}
+                opacity={1 - p.progress * 0.8}
+                className="particle"
+                style={{ filter: `drop-shadow(0 0 ${size + 2}px ${heatColor})` }}
+              />
+            );
+          })}
+        </g>
+
+        {/* Region nodes */}
+        <g className="region-nodes">
+          {regionNames.map((region, idx) => {
+            const state = regionStates[region];
+            const heatColor = getHeatColor(state.congestion);
+            const gradientId = 
+              state.congestion < 0.4 ? 'node-glow-dark' :
+              state.congestion < 0.7 ? 'node-glow-red' :
+              state.congestion < 0.9 ? 'node-glow-orange' :
+              'node-glow-yellow';
+            
+            return (
+              <g key={region}>
+                {/* Outer pulse ring */}
+                <circle
+                  cx={state.x}
+                  cy={state.y}
+                  r={18}
+                  fill="none"
+                  stroke={heatColor}
+                  strokeWidth="1"
+                  opacity={0.3}
+                  className="pulse-ring"
+                  style={{ animation: `pulse-ring ${1 + state.congestion * 0.5}s infinite` }}
                 />
-              );
-            })
-          }
-        </Geographies>
-      </ComposableMap>
 
-      <svg
-        className="network-arcs"
-        viewBox="0 0 960 600"
-        style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none' }}
-      >
-        {/* EU to US arc */}
-        <path
-          d="M 350 300 Q 600 150 850 280"
-          stroke={getRegionColor(
-            (regionStates.EU.congestion + regionStates.US.congestion) / 2
-          )}
-          strokeWidth={Math.max(1, (regionStates.EU.congestion + regionStates.US.congestion) / 4)}
-          fill="none"
-          opacity="0.6"
-          className="pulse"
-        />
+                {/* Main node */}
+                <circle
+                  cx={state.x}
+                  cy={state.y}
+                  r={12}
+                  fill={`url(#${gradientId})`}
+                  stroke={heatColor}
+                  strokeWidth="2"
+                  className="node"
+                  style={{ filter: `drop-shadow(0 0 ${8 + state.congestion * 4}px ${heatColor})` }}
+                />
 
-        {/* EU to ASIA arc */}
-        <path
-          d="M 450 280 Q 700 100 850 200"
-          stroke={getRegionColor(
-            (regionStates.EU.congestion + regionStates.ASIA.congestion) / 2
-          )}
-          strokeWidth={Math.max(1, (regionStates.EU.congestion + regionStates.ASIA.congestion) / 4)}
-          fill="none"
-          opacity="0.6"
-          className="pulse"
-          style={{ animationDelay: '0.5s' }}
-        />
+                {/* Region label */}
+                <text
+                  x={state.x}
+                  y={state.y + 30}
+                  textAnchor="middle"
+                  fill={heatColor}
+                  fontSize="13"
+                  fontWeight="bold"
+                  fontFamily="'Courier New', monospace"
+                  className="region-label"
+                  style={{ 
+                    textShadow: `0 0 10px ${heatColor}`,
+                    pointerEvents: 'none'
+                  }}
+                >
+                  {region}
+                </text>
 
-        {/* US to ASIA arc */}
-        <path
-          d="M 750 300 Q 850 200 850 180"
-          stroke={getRegionColor(
-            (regionStates.US.congestion + regionStates.ASIA.congestion) / 2
-          )}
-          strokeWidth={Math.max(1, (regionStates.US.congestion + regionStates.ASIA.congestion) / 4)}
-          fill="none"
-          opacity="0.6"
-          className="pulse"
-          style={{ animationDelay: '1s' }}
-        />
+                {/* Congestion value */}
+                <text
+                  x={state.x}
+                  y={state.y - 20}
+                  textAnchor="middle"
+                  fill={heatColor}
+                  fontSize="11"
+                  fontFamily="'Courier New', monospace"
+                  opacity="0.8"
+                  style={{ pointerEvents: 'none' }}
+                >
+                  {(state.congestion * 100).toFixed(0)}%
+                </text>
+              </g>
+            );
+          })}
+        </g>
       </svg>
     </div>
   );
